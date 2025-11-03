@@ -316,14 +316,62 @@ def user_profile(username):
             is_currently_following = True
     # --
 
+    reputation = calculate_reputation_score(user['id'], posts)
+
     return render_template('user_profile.html.j2', 
                            user=user, 
                            posts=posts, 
                            comments=comments,
                            followers_count=followers_count, 
                            following_count=following_count,
-                           is_following=is_currently_following)
-    
+                           is_following=is_currently_following,
+                           reputation=reputation)
+
+def calculate_reputation_score(user_id, posts):
+    rep_score = 0
+
+    positive_reactions = ("haha", "like", "love", "wow")
+    if user_risk_analysis(user_id) >= 4.0:
+        return "LOW REPUTATION WARNING"
+
+    post_ids = [post['id'] for post in posts]
+    if  post_ids:
+        post_placeholders = ','.join(['?'] * len(post_ids))
+        p_reaction_placeholders = ','.join(['?'] * len(positive_reactions))
+
+        # Add 2 score for each positive reaction got on the platform
+        query = f"""
+            SELECT COUNT(*) as count
+            FROM reactions
+            WHERE post_id IN ({post_placeholders})
+            AND reaction_type IN ({p_reaction_placeholders})
+        """
+
+        params = tuple(post_ids) + tuple(positive_reactions)
+        result = query_db(query, params, one = True)
+
+        if result:
+            rep_score += result['count'] * 3
+
+        # Add 1 score for each post posted
+        query = "SELECT COUNT(*) as count FROM posts WHERE user_id = ?"
+        result = query_db(query, (user_id, ), one = True)
+        if result:
+            rep_score += result['count']
+        
+        # Add 4 score for each comment left on a post, including all users posts
+        query = f"""
+            SELECT COUNT(*) as count
+            FROM comments
+            WHERE post_id IN ({post_placeholders})
+            AND user_id != ?
+        """
+        params = tuple(post_ids) + (user_id, )
+        result = query_db(query, params, one = True)
+        if result:
+            rep_score += result['count'] * 4
+
+    return rep_score
 
 @app.route('/u/<username>/followers')
 def user_followers(username):
@@ -918,7 +966,7 @@ def recommend(user_id, filter_following):
         LIMIT 5
     """ 
     recommended_posts = query_db(query, (user_id, user_id, user_id, user_id))
-    return recommended_posts;
+    return recommended_posts
 
 # Task 3.2
 def user_risk_analysis(user_id):

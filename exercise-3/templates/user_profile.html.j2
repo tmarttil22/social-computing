@@ -13,7 +13,8 @@
           <p class="card-text text-muted mb-3">
             <strong>Location:</strong> {{ user.location or "N/A" }}<br>
             <strong>Birthdate:</strong> {{ user.birthdate or "N/A" }}<br>
-            <strong>Joined:</strong> {{ user.created_at|datetimeformat }}
+            <strong>Joined:</strong> {{ user.created_at|datetimeformat }}<br>
+            <strong>Reputation:</strong> {{ reputation or "N/A" }}
           </p>
           <p class="card-text">{{ user.profile or "No profile information provided." }}</p>
 
